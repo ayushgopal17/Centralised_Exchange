@@ -41,6 +41,9 @@ async function signin(username: string, password: string) {
     console.log(username);
     console.log(data);
 
+    if (!data || typeof data !== "object" || !("token" in data) || typeof data.token !== "string") {
+        throw new Error("Sign-in did not return a token");
+    }
     return data.token;
 }
 

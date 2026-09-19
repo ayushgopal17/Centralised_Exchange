@@ -16,6 +16,7 @@ model User {
   id        String @id @default(uuid())
   username  String @unique
   password  String
+  balance   Balance?
 }
 
 model Stock {
@@ -47,4 +48,58 @@ model Fill {
   type            String
   originalOrderId String
   createdAt       DateTime @default(now())
+}
+model Balance {
+  userId       String @id
+  user         User   @relation(fields: [userId], references: [id])
+  usdAvailable Float  @default(10000)
+  usdLocked    Float  @default(0)
+  solAvailable Float  @default(10)
+  solLocked    Float  @default(0)
+}
+
+model PaperAccount {
+  userId String @id
+  initialCash Float @default(100000)
+  createdAt DateTime @default(now())
+}
+model PaperWallet {
+  userId String
+  asset String
+  available Float @default(0)
+  locked Float @default(0)
+  averageCost Float @default(0)
+  realizedPnl Float @default(0)
+  @@id([userId, asset])
+}
+model PaperOrder {
+  id String @id @default(uuid())
+  userId String
+  market String
+  side String
+  type String
+  price Float
+  qty Float
+  filledQty Float @default(0)
+  averagePrice Float @default(0)
+  fees Float @default(0)
+  status String @default("OPEN")
+  lastQuoteId String?
+  createdAt DateTime @default(now())
+  @@index([status, market])
+  @@index([userId, createdAt])
+}
+model PaperFill {
+  id String @id @default(uuid())
+  userId String
+  originalOrderId String
+  market String
+  side String
+  type String
+  price Float
+  qty Float
+  fee Float
+  realizedPnl Float @default(0)
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
 }

@@ -1,0 +1,15 @@
+"use client";
+import { useState } from "react";
+import { ClipboardList } from "lucide-react";
+import { toast } from "sonner";
+import { paper, priceText, quantityText, type PaperAccount } from "@/lib/paper";
+export function PaperOrders({ account, onChanged, asset }: { account?: PaperAccount; onChanged: () => void; asset: string }) {
+  const [tab, setTab] = useState("open"); const [filter, setFilter] = useState(false); const [busy, setBusy] = useState<string>();
+  const open = account?.orders.filter(o => ["OPEN", "PARTIALLY_FILLED"].includes(o.status)) ?? [];
+  const rows = (tab === "fills" ? account?.fills ?? [] : tab === "open" ? open : account?.orders ?? []).filter(o => !filter || o.market === asset);
+  async function cancel(id: string) { setBusy(id); try { await paper.cancel(id); if (localStorage.getItem("cex_confirmations") !== "false") toast.success("Order cancelled"); onChanged(); } catch(e) { toast.error(e instanceof Error ? e.message : "Cancellation failed"); } finally { setBusy(undefined); } }
+  return <section className="panel orders-panel"><div className="orders-toolbar"><div className="table-tabs">{[["open", `Open orders (${open.length})`], ["history", "Order history"], ["fills", "Trade history"]].map(([id,label]) => <button key={id} onClick={() => setTab(id)} className={tab === id ? "active" : ""}>{label}</button>)}</div><label className="filter-toggle"><input type="checkbox" checked={filter} onChange={e => setFilter(e.target.checked)} /> {asset} only</label></div>
+    <div className="table-scroll"><div className="paper-table table-head"><span>Pair / Time</span><span>Side</span><span>Price</span><span>Quantity</span><span>{tab === "fills" ? "Fee" : "Filled"}</span><span>Status</span><span /></div>
+    {rows.map(row => { const order = "status" in row ? row : undefined; return <div className="paper-table" key={row.id}><span><strong>{row.market}/USDT</strong><small>{new Date(row.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</small></span><span className={row.side === "buy" ? "positive" : "negative"}>{row.side.toUpperCase()}<small>{order?.type || "FILL"}</small></span><span>{priceText(order?.averagePrice || row.price)}</span><span>{quantityText(row.qty)} {row.market}</span><span>{order ? `${quantityText(order.filledQty)} / ${quantityText(order.qty)}` : "fee" in row ? `${row.fee.toFixed(4)} USDT` : "—"}</span><span><em data-status={order?.status || "FILLED"}>{(order?.status || "FILLED").replaceAll("_", " ")}</em></span><span>{order && ["OPEN", "PARTIALLY_FILLED"].includes(order.status) && <button disabled={busy === row.id} className="cancel-order" onClick={() => cancel(row.id)}>{busy === row.id ? "…" : "Cancel"}</button>}</span></div>; })}
+    {!rows.length && <div className="table-empty"><ClipboardList size={25} /><strong>{account ? `No ${tab === "open" ? "open orders" : tab === "fills" ? "trades yet" : "order history"}` : "Loading your orders"}</strong><span>{account ? "Your paper trades will appear here." : "Connecting to your paper account…"}</span></div>}</div></section>;
+}

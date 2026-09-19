@@ -1,49 +1,42 @@
 "use client";
-
-import { useCallback } from "react";
-import { AlertTriangle, ChevronDown, RefreshCw, Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { AlertTriangle, ArrowUpRight, ChevronDown, RefreshCw, Search, Star, Wallet } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CandlestickChart } from "@/components/candlestick-chart";
 import { MarketActivity } from "@/components/market-activity";
 import { OrderBook } from "@/components/order-book";
-import { OrderPanel } from "@/components/order-panel";
-import { OrdersTable } from "@/components/orders-table";
-import { WebMcpTools } from "@/components/webmcp-tools";
-import { useExchangeData } from "@/lib/use-exchange-data";
-import { useMarketSnapshot } from "@/lib/use-market-data";
+import { PaperOrderPanel } from "@/components/paper-order-panel";
+import { PaperOrders } from "@/components/paper-orders";
+import { useMarketOverview, useMarketSnapshot } from "@/lib/use-market-data";
+import { MARKET_SYMBOLS } from "@/lib/market-data-types";
+import { money, priceText, usePaperAccount } from "@/lib/paper";
 
-function compact(value: number) { return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(value); }
-
+const marks: Record<string,string> = { BTC: "₿", ETH: "Ξ", SOL: "◎", BNB: "◈", XRP: "✕", DOGE: "Ð", ADA: "₳", AVAX: "▲" };
 export default function TradingPage() {
-  const account = useExchangeData(4000);
-  const market = useMarketSnapshot("SOLUSDT", 5000);
-  const bestBid = market.data?.depth.bids[0]?.[0];
-  const bestAsk = market.data?.depth.asks[0]?.[0];
-  const midPrice = bestBid && bestAsk ? (bestBid + bestAsk) / 2 : market.data?.ticker.price;
-  const refreshData = useCallback(() => void account.refresh(), [account.refresh]);
-  const refreshAll = () => { void account.refresh(); void market.refresh(); };
-  const ticker = market.data?.ticker;
-
-  return (
-    <AppShell>
-      <WebMcpTools onOrderCreated={refreshData} />
-      <div className="market-strip">
-        <div className="market-identity"><button aria-label="Favorite SOL"><Star size={17} /></button><span className="coin sol-coin">S</span><div><strong>SOL / USD</strong><small>CEX spot market</small></div><ChevronDown size={16} /></div>
-        <div className="quote-block primary-quote"><span>Reference price</span><strong>{ticker ? `$${ticker.price.toFixed(2)}` : "—"}</strong><small><i className="market-live-dot" /> Binance SOL/USDT</small></div>
-        <div className="quote-block"><span>24h change</span><strong className={ticker && ticker.changePercent < 0 ? "negative" : "positive"}>{ticker ? `${ticker.changePercent >= 0 ? "+" : ""}${ticker.changePercent.toFixed(2)}%` : "—"}</strong><small>{ticker ? `H ${ticker.high.toFixed(2)} · L ${ticker.low.toFixed(2)}` : market.error || "Loading market"}</small></div>
-        <div className="quote-block"><span>Best bid / ask</span><strong>{bestBid && bestAsk ? `${bestBid.toFixed(2)} / ${bestAsk.toFixed(2)}` : "—"}</strong><small>External reference</small></div>
-        <div className="quote-block"><span>24h volume</span><strong>{ticker ? `${compact(ticker.volume)} SOL` : "—"}</strong><small>{ticker ? `$${compact(ticker.quoteVolume)} USDT` : "Public market data"}</small></div>
-        <button className={`refresh-button ${market.refreshing ? "loading" : ""}`} onClick={refreshAll} aria-label="Refresh account and market data"><RefreshCw size={15} /></button>
-      </div>
-      {account.error && <div className="error-banner"><AlertTriangle size={17} /><span>Account data: {account.error}</span><button onClick={() => void account.refresh()}>Retry</button></div>}
-      {market.error && market.data && <div className="stale-market-banner">Market reference refresh failed. Showing the latest available Binance snapshot.</div>}
-      <div className="trading-grid">
-        <CandlestickChart />
-        <OrderBook depth={market.data?.depth} loading={market.loading} error={market.error} midPrice={midPrice} />
-        <OrderPanel balances={account.balances} bestBid={bestBid} bestAsk={bestAsk} onCreated={refreshData} />
-        <MarketActivity trades={market.data?.trades || []} loading={market.loading} error={market.error} />
-        <OrdersTable orders={account.orders} fills={account.fills} loading={account.loading} onChanged={refreshData} />
-      </div>
-    </AppShell>
-  );
+  const [asset, setAsset] = useState("BTC"); const [selector, setSelector] = useState(false); const [query, setQuery] = useState("");
+  useEffect(() => { const selected = new URLSearchParams(window.location.search).get("coin") || localStorage.getItem("paper-coin"); if (MARKET_SYMBOLS.some(m => m.base === selected)) setAsset(selected!);
+    const navigate = () => { const coin = new URLSearchParams(window.location.search).get("coin"); if (MARKET_SYMBOLS.some(m => m.base === coin)) setAsset(coin!); };
+    window.addEventListener("popstate", navigate); return () => window.removeEventListener("popstate", navigate);
+  }, []);
+  const account = usePaperAccount(); const overview = useMarketOverview(); const market = useMarketSnapshot(`${asset}USDT`, 4000);
+  const ticker = market.data?.ticker; const bid = market.data?.depth.bids[0]?.[0]; const ask = market.data?.depth.asks[0]?.[0];
+  const wallets = account.data?.wallets; const cash = wallets?.find(w => w.asset === "USDT");
+  const valued = wallets && wallets.every(w => w.asset === "USDT" || w.available + w.locked < 1e-8 || overview.markets.some(m => m.base === w.asset));
+  const equity = valued ? wallets.reduce((sum,w) => sum + (w.available + w.locked) * (w.asset === "USDT" ? 1 : overview.markets.find(m => m.base === w.asset)?.price || 0), 0) : undefined;
+  const pnl = equity === undefined ? undefined : equity - (account.data?.initialCash || 100000);
+  const name = MARKET_SYMBOLS.find(m => m.base === asset)?.name;
+  function select(coin: string) { setAsset(coin); localStorage.setItem("paper-coin", coin); window.history.replaceState(null,"",`/?coin=${coin}`); setSelector(false); setQuery(""); }
+  return <AppShell>
+    <div className="terminal-top"><div><span className="eyebrow">YOUR EDGE STARTS HERE</span><h1>Trading terminal<span className="paper-tag">Paper trading</span></h1><p>Build your strategy. Trade the market. Keep the risk virtual.</p></div><Link href="/wallet" className="portfolio-link"><Wallet size={16} /> View portfolio <ArrowUpRight size={16} /></Link></div>
+    <div className="account-ribbon"><div><span>Portfolio equity</span><strong>{equity === undefined ? "—" : `$${money(equity)}`}</strong><small>{overview.error ? "Valuation prices delayed" : "Virtual USDT"}</small></div><div><span>Total profit / loss</span><strong className={pnl !== undefined && pnl < 0 ? "negative" : "positive"}>{pnl === undefined ? "—" : `${pnl >= 0 ? "+" : "−"}$${money(Math.abs(pnl))}`}</strong><small>{pnl === undefined ? "Waiting for prices" : `${(pnl / 1000).toFixed(2)}% all time`}</small></div><div><span>Available to trade</span><strong>{cash ? `$${money(cash.available)}` : "—"}</strong><small>{cash ? `${money(cash.locked)} USDT in orders` : "Loading account"}</small></div><div className="account-ribbon-last"><span>Practice with purpose</span><strong>Real prices. Virtual capital.</strong><small>100,000 USDT starting balance · 0.10% fee</small></div></div>
+    <div className="terminal-workspace"><aside className="watchlist"><div className="watchlist-title"><h2>Watchlist</h2><Star size={15} /></div><div className="watchlist-caption"><span>Market</span><span>Price / 24h</span></div>{MARKET_SYMBOLS.map(coin => { const t = overview.markets.find(m => m.base === coin.base); return <button key={coin.base} onClick={() => select(coin.base)} className={`watchlist-item ${asset === coin.base ? "selected" : ""}`}><span className={`asset-mark coin-${coin.base.toLowerCase()}`}>{marks[coin.base]}</span><span><strong>{coin.base}</strong><small>{coin.name}</small></span><span className="watchlist-quote"><strong>{priceText(t?.price)}</strong><small className={t && t.changePercent < 0 ? "negative" : "positive"}>{t ? `${t.changePercent >= 0 ? "+" : ""}${t.changePercent.toFixed(2)}%` : "—"}</small></span></button>; })}<div className="watchlist-foot"><span className="paper-tag">SPOT SIMULATOR</span><h3>Learn by doing.</h3><p>Test ideas across eight markets without risking real money.</p><Link href="/markets">Explore markets <ArrowUpRight size={13} /></Link></div></aside>
+    <div className="terminal-main">
+      <div className="market-strip"><div className="market-picker"><button className="market-picker-button" onClick={() => setSelector(!selector)} aria-expanded={selector} aria-label="Choose trading coin"><span className={`asset-mark coin-${asset.toLowerCase()}`}>{marks[asset]}</span><span><strong>{asset}<em> / USDT</em></strong><small>{name} · Spot</small></span><ChevronDown size={16} /></button>{selector && <div className="coin-dropdown"><div className="coin-search"><Search size={15} /><input autoFocus aria-label="Search coins" placeholder="Search coins…" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if(e.key === "Escape") setSelector(false); }} /></div>{MARKET_SYMBOLS.filter(m => `${m.base} ${m.name}`.toLowerCase().includes(query.toLowerCase())).map(m => <button key={m.base} onClick={() => select(m.base)}><span>{m.base} / USDT</span><small>{m.name}</small></button>)}</div>}</div>
+        <div className="quote-block primary-quote"><strong className={ticker && ticker.changePercent < 0 ? "negative" : "positive"}>{priceText(ticker?.price)}</strong><small>{ticker ? `$${priceText(ticker.price)}` : "Fetching live price"}</small></div><div className="quote-block"><span>24h change</span><strong className={ticker && ticker.changePercent < 0 ? "negative" : "positive"}>{ticker ? `${ticker.changePercent >= 0 ? "+" : ""}${ticker.changePercent.toFixed(2)}%` : "—"}</strong></div><div className="quote-block"><span>24h high</span><strong>{priceText(ticker?.high)}</strong></div><div className="quote-block"><span>24h low</span><strong>{priceText(ticker?.low)}</strong></div><div className="quote-block"><span>24h volume (USDT)</span><strong>{ticker ? Intl.NumberFormat("en",{notation:"compact",maximumFractionDigits:2}).format(ticker.quoteVolume) : "—"}</strong></div><button className="refresh-button" aria-label="Refresh trading data" onClick={() => { void account.refresh(); market.refresh(); overview.refresh(); }}><RefreshCw size={15} /></button></div>
+      {account.error && <div className="error-banner"><AlertTriangle size={16} /><span>{account.error}</span><button onClick={() => void account.refresh()}>Retry</button></div>}
+      {market.error && <div className="error-banner"><AlertTriangle size={16} /><span>{market.error}. Trading pauses until fresh quotes return.</span><button onClick={market.refresh}>Retry</button></div>}
+      <div className="trading-grid"><CandlestickChart key={`chart-${asset}`} asset={asset} /><OrderBook asset={asset} depth={market.data?.depth} loading={market.loading} error={market.error} midPrice={ticker?.price} /><PaperOrderPanel key={`order-${asset}`} asset={asset} bid={bid} ask={ask} account={account.error ? undefined : account.data} onCreated={() => void account.refresh()} stale={!!market.error || market.loading} /><MarketActivity asset={asset} trades={market.data?.trades || []} loading={market.loading} error={market.error} /><PaperOrders account={account.data} asset={asset} onChanged={() => void account.refresh()} /></div>
+    </div></div><footer className="terminal-footer"><span><i className={market.error || !market.data ? "offline" : ""} />{market.error ? "Market data interrupted" : market.data ? `Market updated ${new Date(market.data.updatedAt).toLocaleTimeString()}` : "Connecting to market data"}</span><span>Simulated spot trading · no real assets or exchange orders</span><span>NEXORA PAPER</span></footer>
+  </AppShell>;
 }

@@ -22,5 +22,13 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.22.0"
+  },
+  "scripts": {
+    "start": "bun run index.ts",
+    "build": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "typecheck": "tsc --noEmit",
+    "test:persistence": "bun test tests/persistence.test.ts",
+    "test:paper": "bun test tests/paper.test.ts"
   }
 }

@@ -1,53 +1,39 @@
 "use client";
+import { useCallback, useEffect, useState } from "react";
+import { marketData } from "./market-data";
+import type { MarketInterval } from "./market-data-types";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { marketData, MarketDataError } from "./market-data";
-import type { MarketCandle, MarketInterval, MarketSnapshot, MarketTicker } from "./market-data-types";
-
-function message(error: unknown) { return error instanceof MarketDataError ? error.message : "Live market data is unavailable"; }
-
+function usePolling<T>(key: string, fetcher: () => Promise<T>, pollMs: number) {
+  const [state, setState] = useState<{ key: string; data?: T; error?: string; loading: boolean }>({ key, loading: true });
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    let active = true, running = false;
+    setState(previous => previous.key === key ? previous : { key, loading: true });
+    const load = async () => {
+      if (running) return;
+      running = true;
+      try { const data = await fetcher(); if (active) setState({ key, data, loading: false }); }
+      catch (e) { if (active) setState(previous => ({ ...previous, key, loading: false, error: e instanceof Error ? e.message : "Market data unavailable" })); }
+      finally { running = false; }
+    };
+    void load(); const timer = setInterval(load, pollMs);
+    return () => { active = false; clearInterval(timer); };
+  }, [key, fetcher, pollMs, revision]);
+  const refresh = useCallback(() => setRevision(v => v + 1), []);
+  return { ...(state.key === key ? state : { key, loading: true }), refresh };
+}
 export function useMarketSnapshot(symbol = "SOLUSDT", pollMs = 5000) {
-  const [data, setData] = useState<MarketSnapshot>();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string>();
-  const running = useRef(false);
-  const refresh = useCallback(async (quiet = false) => {
-    if (running.current) return;
-    running.current = true; quiet ? setRefreshing(true) : setLoading(true);
-    try { setData(await marketData.snapshot(symbol)); setError(undefined); }
-    catch (reason) { setError(message(reason)); }
-    finally { setLoading(false); setRefreshing(false); running.current = false; }
-  }, [symbol]);
-  useEffect(() => { void refresh(); const timer = window.setInterval(() => void refresh(true), pollMs); return () => window.clearInterval(timer); }, [pollMs, refresh]);
-  return { data, loading, refreshing, error, refresh: () => refresh(true) };
+  const load = useCallback(() => marketData.snapshot(symbol), [symbol]);
+  const result = usePolling(symbol, load, pollMs);
+  return { ...result, refreshing: result.loading };
 }
-
 export function useMarketCandles(symbol: string, interval: MarketInterval, pollMs = 15000) {
-  const [candles, setCandles] = useState<MarketCandle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
-  const refresh = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    try { const result = await marketData.candles(symbol, interval); setCandles(result.candles); setError(undefined); }
-    catch (reason) { setError(message(reason)); }
-    finally { setLoading(false); }
-  }, [interval, symbol]);
-  useEffect(() => { void refresh(); const timer = window.setInterval(() => void refresh(true), pollMs); return () => window.clearInterval(timer); }, [pollMs, refresh]);
-  return { candles, loading, error, refresh: () => refresh(true) };
+  const load = useCallback(() => marketData.candles(symbol, interval), [symbol, interval]);
+  const result = usePolling(`${symbol}-${interval}`, load, pollMs);
+  return { ...result, candles: result.data?.candles ?? [] };
 }
-
 export function useMarketOverview(pollMs = 15000) {
-  const [markets, setMarkets] = useState<MarketTicker[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
-  const refresh = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    try { const result = await marketData.overview(); setMarkets(result.markets); setError(undefined); }
-    catch (reason) { setError(message(reason)); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { void refresh(); const timer = window.setInterval(() => void refresh(true), pollMs); return () => window.clearInterval(timer); }, [pollMs, refresh]);
-  return { markets, loading, error, refresh: () => refresh(true) };
+  const load = useCallback(() => marketData.overview(), []);
+  const result = usePolling("overview", load, pollMs);
+  return { ...result, markets: result.data?.markets ?? [] };
 }
-

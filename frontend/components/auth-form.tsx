@@ -41,9 +41,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       <div className="auth-glow" />
       <Link href="/" className="auth-brand"><span className="brand-mark">N</span><span>NEXORA</span></Link>
       <section className="auth-card">
-        <div className="eyebrow">{isLogin ? "SECURE ACCESS" : "CREATE ACCOUNT"}</div>
-        <h1>{isLogin ? "Welcome back" : "Start trading"}</h1>
-        <p>{isLogin ? "Sign in to manage your portfolio and orders." : "Create your exchange account in a few seconds."}</p>
+        <div className="eyebrow">{isLogin ? "YOUR PAPER ACCOUNT" : "CREATE ACCOUNT"}</div>
+        <h1>{isLogin ? "Welcome back" : "Start practicing"}</h1>
+        <p>{isLogin ? "Sign in to manage your portfolio and orders." : "Get 100,000 virtual USDT and explore live crypto markets."}</p>
         <form onSubmit={handleSubmit(submit)} noValidate>
           <label>Username</label>
           <div className={`input-wrap ${errors.username ? "invalid" : ""}`}><UserRound size={17} /><input autoComplete="username" autoFocus placeholder="trader_01" {...register("username")} /></div>
@@ -55,7 +55,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </form>
         <div className="auth-switch">{isLogin ? "New to Nexora?" : "Already have an account?"} <Link href={isLogin ? "/register" : "/login"}>{isLogin ? "Create account" : "Sign in"}</Link></div>
       </section>
-      <div className="auth-foot"><span><i /> Encrypted session</span><span>REST API · V1</span></div>
+      <div className="auth-foot"><span><i /> Virtual funds only</span><span>Nexora Paper Trading</span></div>
     </div>
   );
 }

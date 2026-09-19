@@ -4,8 +4,8 @@ import { AuthProvider } from "@/components/auth-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nexora Exchange",
-  description: "Spot trading, markets, orders, and portfolio management.",
+  title: "Nexora — Paper Trading",
+  description: "Practice crypto trading with live markets, virtual capital, and a persistent paper portfolio.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

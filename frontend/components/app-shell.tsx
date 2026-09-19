@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, CircleUserRound, LogOut, Menu, Settings, WalletCards, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Protected, useAuth } from "./auth-provider";
 
 const links = [
@@ -17,20 +17,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { username, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => { document.documentElement.classList.toggle("reduce-motion", localStorage.getItem("cex_reduced_motion") === "true"); }, []);
 
   return (
     <Protected>
       <div className="app-frame">
         <header className="topbar">
           <Link href="/" className="brand" aria-label="Nexora home">
-            <span className="brand-mark">N</span><span>NEXORA</span><span className="version-pill">V1</span>
+            <span className="brand-mark">N</span><span>NEXORA</span><span className="version-pill">PAPER</span>
           </Link>
           <nav className="desktop-nav" aria-label="Primary navigation">
             {links.map(({ href, label }) => <Link key={href} href={href} className={pathname === href ? "active" : ""}>{label}</Link>)}
           </nav>
           <div className="topbar-actions">
-            <span className="api-status"><i /> REST connected</span>
-            <button className="profile-chip" type="button" onClick={() => setMenuOpen(true)}><CircleUserRound size={17} />{username}</button>
+            <span className="api-status">Virtual funds · Real markets</span>
+            <button className="profile-chip" type="button" onClick={() => setMenuOpen(!menuOpen)}><CircleUserRound size={17} />{username}</button>
             <button className="mobile-menu-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open menu">{menuOpen ? <X /> : <Menu />}</button>
           </div>
         </header>
