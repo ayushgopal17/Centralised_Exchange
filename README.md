@@ -91,12 +91,29 @@ Webpack is configured for local development/builds because this workspace's Next
    ```bash
    bun run db:migrate
    ```
-   Use your deployment's migration step or run it locally from `backend/` with the correct `DATABASE_URL`. The migrations add `Balance` and the four `Paper*` tables. They do not drop or reset existing records. Do not use `prisma migrate reset`.
-4. Start the Render service with `bun run start`. It honors Render's `PORT` environment variable. Leave `PAPER_WORKER` unset so the five-second order worker runs. Do not set `MARKET_DATA_BASE_URL` in production unless intentionally configuring another compatible market provider.
+   Use your deployment's migration step or run it locally from `backend/` with the correct `DATABASE_URL`. The two September migrations add `Balance` and the four `Paper*` tables without resetting balances. Review pending migrations on older databases: the July `fix_created_at` migration recreates the order/fill timestamp columns. Do not use `prisma migrate reset`.
+4. Set Render's Start Command to `bun run start` (not `bun index.ts`). This now runs `prisma migrate deploy` before the API and worker, so a skipped migration step cannot launch the service with missing tables. If migration fails, startup stops and Render logs show the migration error. Keep development dependencies installed because the Prisma CLI is needed at startup. It honors Render's `PORT` environment variable. Leave `PAPER_WORKER` unset so the five-second order worker runs. Do not set `MARKET_DATA_BASE_URL` in production unless intentionally configuring another compatible market provider.
 5. Deploy the frontend (`frontend` root) on Vercel. Build command: `npm run build`. Keep its `BACKEND_URL` pointed at the Render API URL.
 6. Sign in and confirm the new paper account has 100,000 USDT. Place a small paper order, check positions/history, restart the backend, and confirm the paper portfolio persists.
 
 Deploy the backend and migrations before the frontend. Keep the backend continuously running if you want resting limits checked while users are away. A frontend-only redeploy cannot add the paper trading API.
+
+## Troubleshooting deployed signup and wallet failures
+
+If signup, existing-account balances, and the paper worker fail together, check the Prisma error **code**, not just `PrismaClientKnownRequestError`. `P2021` means a missing table; `P2022` means a missing column. Signup requires `Balance`; paper portfolios and the worker require the four `Paper*` tables.
+
+Render settings:
+
+- Root Directory: `backend`
+- Build Command: `bun install --frozen-lockfile && bun run build`
+- Start Command: `bun run start`
+- `DATABASE_URL`: the PostgreSQL database/branch/schema containing your existing users
+
+Push the fix and redeploy Render. Startup should report that migrations were applied (or none are pending) before serving requests. If it fails, address the migration error from that deploy; do not reset the database or mark migrations applied without checking the actual schema.
+
+On Vercel, set `BACKEND_URL=https://YOUR-SERVICE.onrender.com` for the deployment's environment and redeploy after changing it. Use the backend origin with no `/api` suffix. The frontend calls its own Next.js proxy, so browser CORS settings do not fix a backend Prisma failure.
+
+If the error has another code, inspect that code and the Render migration output before changing data. A legacy `/balance` response mentioning reconciliation is a separate case; follow the [recovery guide](docs/legacy-exchange.md) using verified balances. Paper accounts are separate virtual portfolios and do not overwrite legacy funds.
 
 ## API
 

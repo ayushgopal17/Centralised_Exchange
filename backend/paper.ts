@@ -4,6 +4,7 @@ import { authMiddleware } from "./middleware";
 import { exchangeTransaction, ExchangeError } from "./exchange";
 import { COINS, FEE_RATE, getQuote, type Quote } from "./paper-market";
 import type { Prisma, PaperOrder } from "./generated/prisma/client";
+import { logDatabaseError } from "./database-errors";
 const OPEN = ["OPEN", "PARTIALLY_FILLED"];
 const round = (v: number) => Math.round(v * 1e8) / 1e8;
 type Tx = Prisma.TransactionClient;
@@ -123,6 +124,6 @@ export async function processPaperOrders() {
   } finally { running = false; }
 }
 export function startPaperWorker() {
-  const tick = () => { void processPaperOrders().catch(error => console.error("Paper order check failed", error.name)); };
+  const tick = () => { void processPaperOrders().catch(error => logDatabaseError("Paper order check failed", error)); };
   tick(); return setInterval(tick, 5000);
 }

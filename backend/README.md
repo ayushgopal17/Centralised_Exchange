@@ -11,4 +11,4 @@ bun run db:migrate
 bun run start
 ```
 
-Set `DATABASE_URL` before migrations/startup. The API uses `PORT` or defaults to 3000. The paper order worker runs automatically; `PAPER_WORKER=off` is only for processes where another worker is running or for specific tests.
+Set `DATABASE_URL` before migrations/startup. `bun run start` applies pending migrations before starting the API and worker, and exits if migration fails. Render must use this package script rather than `bun index.ts`. The API uses `PORT` or defaults to 3000. The paper order worker runs automatically; `PAPER_WORKER=off` is only for processes where another worker is running or for specific tests.

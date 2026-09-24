@@ -24,7 +24,7 @@
     "pg": "^8.22.0"
   },
   "scripts": {
-    "start": "bun run index.ts",
+    "start": "bun run db:migrate && bun run index.ts",
     "build": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "typecheck": "tsc --noEmit",

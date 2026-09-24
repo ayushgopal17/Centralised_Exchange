@@ -6,6 +6,7 @@ import { matchOrder } from "./engine";
 import { ensureBalance, exchangeTransaction, ExchangeError, getBalance } from "./exchange";
 
 import { paperRouter, startPaperWorker } from "./paper";
+import { logDatabaseError, isSchemaError } from "./database-errors";
 
 export const app = express();
 app.use(express.json());
@@ -113,7 +114,10 @@ app.get("/balance", authMiddleware, async (req: any, res) => {
 });
 app.use((error: any, _req: any, res: any, _next: any) => {
   if (error instanceof ExchangeError) return res.status(error.status).json({ message: error.message });
-  console.error("Exchange request failed", error.name);
+  logDatabaseError("Exchange request failed", error);
+  if (isSchemaError(error)) {
+    return res.status(503).json({ message: "Exchange database is not ready. Please try again after the backend database migrations are applied." });
+  }
   return res.status(500).json({ message: "Exchange request failed" });
 });
 if (import.meta.main) {
